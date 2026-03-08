@@ -316,7 +316,7 @@ function renderBookInfo(res) {
   }
   var b = res.book;
   var img = document.getElementById('book-img');
-  img.src = b.coverUrl || '';
+  img.src = b.cover || '';
   img.onerror = function() { this.src = 'https://via.placeholder.com/72x100?text=📚'; };
   document.getElementById('book-ttl').textContent  = b.title;
   document.getElementById('book-aut').textContent  = b.author;
