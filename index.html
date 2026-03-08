@@ -387,6 +387,7 @@ function resetAll() {
   selectedEmployee = null;
   document.getElementById('emp-search').value = '';
   document.getElementById('emp-selected').classList.add('hidden');
+  hide('my-books');
   document.getElementById('btn-next1').disabled = true;
   hide('scan-result'); hide('book-detail'); hide('step-done');
   goStep(1);
@@ -398,6 +399,40 @@ function formatDate(dateStr) {
   const d = new Date(dateStr);
   const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
   return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（' + weekdays[d.getDay()] + '）';
+}
+function loadMyBooks(employee) {
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'getMyBooks', email: employee.email })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    var listEl = document.getElementById('my-books-list');
+    if (!res.success || res.books.length === 0) {
+      listEl.innerHTML = '<div class="alert alert-info">現在借りている本はありません</div>';
+    } else {
+      listEl.innerHTML = res.books.map(function(b) {
+        var due = new Date(b.dueDate);
+        var today = new Date();
+        today.setHours(0,0,0,0);
+        var isOverdue = today > due;
+        return '<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;' +
+               (isOverdue ? 'background:#fce8e6;border-color:#c62828;' : 'background:#f8f9fa;') + '">' +
+               '<div style="font-weight:700;font-size:14px;margin-bottom:4px;">' + b.title + '</div>' +
+               '<div style="font-size:12px;color:' + (isOverdue ? '#c62828' : 'var(--text-sub)') + ';">' +
+               (isOverdue ? '⚠️ 延滞中！　' : '📅 ') +
+               '返却期限：' + formatDate(b.dueDate) + '</div>' +
+               '</div>';
+      }).join('');
+    }
+    show('my-books');
+  })
+  .catch(function() {
+    document.getElementById('my-books-list').innerHTML =
+      '<div class="alert alert-error">読み込みに失敗しました</div>';
+    show('my-books');
+  });
 }
 var allEmployees = [];
 var selectedEmployee = null;
@@ -446,6 +481,7 @@ function selectEmployee(e) {
   selectedEl.textContent = '✅ ' + String(e.id).padStart(3,'0') + ' ' + e.name + (e.department ? '（' + e.department + '）' : '') + ' を選択しました';
   selectedEl.classList.remove('hidden');
   document.getElementById('btn-next1').disabled = false;
+  loadMyBooks(e);
 }
 </script>
 </body>
