@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>社内書籍貸出システム</title>
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:   #1a73e8;
+      --primary-d: #1557b0;
+      --success:   #2e7d32;
+      --danger:    #c62828;
+      --scan-color:#f57c00;
+      --bg:        #f0f4f8;
+      --card-bg:   #ffffff;
+      --text:      #202124;
+      --text-sub:  #5f6368;
+      --border:    #dadce0;
+    }
+    body { font-family: 'Hiragino Sans', 'Noto Sans JP', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .header { background: var(--primary); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100; }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .container { max-width: 500px; margin: 0 auto; padding: 16px; }
+    .steps { display: flex; align-items: center; justify-content: center; margin: 16px 0 20px; }
+    .step-circle { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--border); color: var(--text-sub); transition: all 0.3s; flex-shrink: 0; }
+    .step-circle.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(26,115,232,0.4); }
+    .step-circle.done   { background: var(--success); color: #fff; }
+    .step-line { flex: 1; height: 3px; background: var(--border); transition: background 0.3s; max-width: 60px; }
+    .step-line.done { background: var(--success); }
+    .card { background: var(--card-bg); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+    .card-title { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    select { width: 100%; padding: 13px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 16px; color: var(--text); background: #fff; outline: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%235f6368' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; margin-bottom: 14px; }
+    select:focus { border-color: var(--primary); }
+    .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-bottom: 10px; transition: all 0.15s; }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:active   { transform: scale(0.98); opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary  { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-d); }
+    .btn-scan     { background: var(--scan-color); color: #fff; }
+    .btn-borrow   { background: var(--success); color: #fff; font-size: 18px; padding: 16px; }
+    .btn-return   { background: var(--primary); color: #fff; font-size: 18px; padding: 16px; }
+    .btn-ghost    { background: transparent; color: var(--text-sub); border: 2px solid var(--border); }
+    #scanner-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+    #scanner-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .scan-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 75%; max-width: 280px; height: 80px; z-index: 10; pointer-events: none; }
+    .scan-frame::before, .scan-frame::after,
+    .scan-frame span::before, .scan-frame span::after { content:''; position:absolute; width:22px; height:22px; border-color:var(--scan-color); border-style:solid; }
+    .scan-frame::before      { top:0;    left:0;   border-width:3px 0 0 3px; }
+    .scan-frame::after       { top:0;    right:0;  border-width:3px 3px 0 0; }
+    .scan-frame span::before { bottom:0; left:0;   border-width:0 0 3px 3px; }
+    .scan-frame span::after  { bottom:0; right:0;  border-width:0 3px 3px 0; }
+    .scan-line-anim { position:absolute; left:5%; right:5%; height:2px; background:var(--scan-color); box-shadow:0 0 6px var(--scan-color); animation:scanAnim 1.8s ease-in-out infinite; }
+    @keyframes scanAnim { 0%{top:5%} 50%{top:90%} 100%{top:5%} }
+    .book-card { display:flex; gap:14px; margin-bottom:16px; align-items:flex-start; }
+    .book-cover { width:72px; height:100px; object-fit:cover; border-radius:6px; box-shadow:2px 3px 10px rgba(0,0,0,0.2); flex-shrink:0; background:#e8eaed; }
+    .book-meta { flex:1; }
+    .book-title  { font-size:15px; font-weight:700; margin-bottom:4px; line-height:1.4; }
+    .book-author { font-size:13px; color:var(--text-sub); margin-bottom:8px; }
+    .book-isbn   { font-size:11px; color:#9aa0a6; }
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; margin-bottom:6px; }
+    .badge-ok { background:#e6f4ea; color:var(--success); }
+    .badge-ng { background:#fce8e6; color:var(--danger); }
+    .badge-me { background:#e8f0fe; color:var(--primary); }
+    .due-text { font-size:12px; color:var(--text-sub); }
+    .alert { padding:12px 14px; border-radius:10px; font-size:14px; margin-bottom:14px; line-height:1.5; }
+    .alert-info    { background:#e8f0fe; color:#1557b0; border-left:4px solid var(--primary); }
+    .alert-success { background:#e6f4ea; color:var(--success); border-left:4px solid var(--success); }
+    .alert-error   { background:#fce8e6; color:var(--danger); border-left:4px solid var(--danger); }
+    .loading-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px 20px; gap:12px; color:var(--text-sub); font-size:14px; }
+    .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .complete-wrap { text-align:center; padding:20px; }
+    .complete-icon  { font-size:64px; margin-bottom:12px; animation:pop 0.4s ease; }
+    @keyframes pop { 0%{transform:scale(0)} 80%{transform:scale(1.2)} 100%{transform:scale(1)} }
+    .complete-title { font-size:20px; font-weight:700; color:var(--success); margin-bottom:8px; }
+    .complete-msg   { font-size:14px; color:var(--text-sub); margin-bottom:20px; white-space:pre-line; line-height:1.7; }
+    .hidden { display:none !important; }
+    .divider { height:1px; background:var(--border); margin:14px 0; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:22px">📚</span>
+  <div>
+    <div style="font-size:11px;opacity:0.8;letter-spacing:0.5px;margin-bottom:2px">株式会社Across Digital</div>
+    <h1>社内書籍貸出システム</h1>
+  </div>
+</div>
+
+<div class="container">
+  <div class="steps">
+    <div class="step-circle active" id="dot1">1</div>
+    <div class="step-line" id="line12"></div>
+    <div class="step-circle" id="dot2">2</div>
+    <div class="step-line" id="line23"></div>
+    <div class="step-circle" id="dot3">3</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div id="step1" class="card">
+    <div class="card-title">👤 STEP 1 ／ お名前を選択</div>
+    <div id="emp-loading" class="loading-wrap">
+      <div class="spinner"></div>
+      <span>社員一覧を読み込んでいます…</span>
+    </div>
+    <div id="emp-form" class="hidden">
+      <select id="emp-select">
+        <option value="">-- お名前を選んでください --</option>
+      </select>
+      <button class="btn btn-primary" onclick="onStep1Next()">次へ →</button>
+    </div>
+    <div id="emp-error" class="alert alert-error hidden">
+      社員一覧の読み込みに失敗しました。ページを再読み込みしてください。
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="step2" class="card hidden">
+    <div class="card-title">📷 STEP 2 ／ 本のバーコードをスキャン</div>
+    <div class="alert alert-info" id="scan-user-label"></div>
+    <div id="scanner-wrap" class="hidden">
+      <video id="scanner-video" playsinline></video>
+      <div class="scan-frame"><span></span><div class="scan-line-anim"></div></div>
+    </div>
+    <div id="scan-result" class="alert alert-success hidden"></div>
+    <button class="btn btn-scan" id="scan-btn" onclick="startScanner()">📷 カメラを起動してスキャン</button>
+    <button class="btn btn-ghost" onclick="goStep(1)">← 戻る</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="step3" class="card hidden">
+    <div class="card-title">📖 STEP 3 ／ 確認・貸出 ／ 返却</div>
+    <div id="book-loading" class="loading-wrap">
+      <div class="spinner"></div>
+      <span>書籍情報を取得しています…</span>
+    </div>
+    <div id="book-detail" class="hidden">
+      <div class="book-card">
+        <img id="book-img" class="book-cover" src="" alt="表紙">
+        <div class="book-meta">
+          <div class="book-title"  id="book-ttl">—</div>
+          <div class="book-author" id="book-aut">—</div>
+          <div id="book-badge"></div>
+          <div id="book-due" class="due-text"></div>
+          <div class="book-isbn"   id="book-isbn"></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div id="action-zone"></div>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="goStep(2)">← 別の本をスキャン</button>
+    </div>
+  </div>
+
+  <!-- 完了 -->
+  <div id="step-done" class="card hidden">
+    <div class="complete-wrap">
+      <div class="complete-icon">✅</div>
+      <div class="complete-title">完了しました！</div>
+      <div class="complete-msg" id="done-msg"></div>
+      <button class="btn btn-primary" onclick="resetAll()">続けて操作する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ★ここを自分のGAS WebApp URLに書き換えてください★
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxmyT8WWCz8v3sa_sZwpkc9SGzNUnh6Au2mi_6fbeMWKxl8lG1s0UqSZhlQBFPGUBtY/exec';
+
+var state = { employee: null, isbn: null, codeReader: null };
+
+window.addEventListener('load', function() { loadEmployees(); });
+
+function callGAS(params) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+}
+
+function callGASWithResult(params) {
+  return fetch(GAS_URL + '?callback=cb', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(params)
+  }).then(function(r) { return r.json(); });
+}
+
+function loadEmployees() {
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'getEmployees' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    hide('emp-loading');
+    if (!res.success || !res.employees.length) { show('emp-error'); return; }
+    var sel = document.getElementById('emp-select');
+    res.employees.forEach(function(e) {
+      var opt = document.createElement('option');
+      opt.value = JSON.stringify(e);
+      opt.textContent = e.name + (e.department ? '（' + e.department + '）' : '');
+      sel.appendChild(opt);
+    });
+    show('emp-form');
+  })
+  .catch(function() { hide('emp-loading'); show('emp-error'); });
+}
+
+function onStep1Next() {
+  var sel = document.getElementById('emp-select');
+  if (!sel.value) { alert('お名前を選択してください。'); return; }
+  state.employee = JSON.parse(sel.value);
+  document.getElementById('scan-user-label').textContent = '👤 ' + state.employee.name + ' さんとして操作します';
+  goStep(2);
+}
+
+function goStep(n) {
+  stopScanner();
+  hide('step1'); hide('step2'); hide('step3'); hide('step-done');
+  if (n === 1) show('step1');
+  if (n === 2) show('step2');
+  if (n === 3) show('step3');
+  updateDots(n);
+}
+
+function updateDots(active) {
+  [1,2,3].forEach(function(i) {
+    var d = document.getElementById('dot' + i);
+    d.className = 'step-circle';
+    if (i < active) d.classList.add('done');
+    if (i === active) d.classList.add('active');
+  });
+  updateLine('line12', active > 1);
+  updateLine('line23', active > 2);
+}
+
+function updateLine(id, done) {
+  document.getElementById(id).className = 'step-line' + (done ? ' done' : '');
+}
+
+function startScanner() {
+  var videoEl = document.getElementById('scanner-video');
+  show('scanner-wrap');
+  hide('scan-result');
+  var btn = document.getElementById('scan-btn');
+  btn.textContent = '⏹ スキャン停止';
+  btn.onclick = stopScanner;
+
+  try {
+    var codeReader = new ZXing.BrowserMultiFormatReader();
+    state.codeReader = codeReader;
+    codeReader.decodeFromConstraints(
+      { audio: false, video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+      videoEl,
+      function(result, err) {
+        if (result) {
+          var code = result.getText();
+          if (code && code.length === 13 && (code.startsWith('978') || code.startsWith('979'))) {
+            state.isbn = code;
+            stopScanner();
+            onIsbnFound(code);
+          }
+        }
+      }
+    );
+  } catch(e) {
+    stopScanner();
+    alert('カメラを起動できませんでした。\nカメラの許可を確認してください。\nエラー：' + e.message);
+  }
+}
+
+function stopScanner() {
+  if (state.codeReader) {
+    try { state.codeReader.reset(); } catch(e) {}
+    state.codeReader = null;
+  }
+  hide('scanner-wrap');
+  var btn = document.getElementById('scan-btn');
+  if (btn) { btn.textContent = '📷 カメラを起動してスキャン'; btn.onclick = startScanner; }
+}
+
+function onIsbnFound(isbn) {
+  var el = document.getElementById('scan-result');
+  el.textContent = '✅ バーコード読取完了：ISBN ' + isbn;
+  show('scan-result');
+  goStep(3);
+  show('book-loading');
+  hide('book-detail');
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'getBookInfo', isbn: isbn })
+  })
+  .then(function(r) { return r.json(); })
+  .then(renderBookInfo)
+  .catch(function(err) {
+    hide('book-loading'); show('book-detail');
+    document.getElementById('action-zone').innerHTML = '<div class="alert alert-error">通信エラー：' + err + '</div>';
+  });
+}
+
+function renderBookInfo(res) {
+  hide('book-loading');
+  show('book-detail');
+  if (!res.success) {
+    document.getElementById('action-zone').innerHTML = '<div class="alert alert-error">' + esc(res.error) + '</div>';
+    return;
+  }
+  var b = res.book;
+  var img = document.getElementById('book-img');
+  img.src = b.coverUrl || '';
+  img.onerror = function() { this.src = 'https://via.placeholder.com/72x100?text=📚'; };
+  document.getElementById('book-ttl').textContent  = b.title;
+  document.getElementById('book-aut').textContent  = b.author;
+  document.getElementById('book-isbn').textContent = 'ISBN: ' + b.isbn;
+
+  var badgeEl = document.getElementById('book-badge');
+  var dueEl   = document.getElementById('book-due');
+  var zone    = document.getElementById('action-zone');
+
+  if (b.currentBorrower) {
+    var isMe = (b.currentBorrower.email === state.employee.email);
+    if (isMe) {
+      badgeEl.innerHTML = '<span class="badge badge-me">📤 貸出中（あなた）</span>';
+      dueEl.textContent = '返却期限：' + b.currentBorrower.dueDate;
+      zone.innerHTML =
+        '<div class="alert alert-info">あなたが借りています。返却できます。</div>' +
+        '<button class="btn btn-return" onclick="doAction(\'return\')">📥 この本を返却する</button>';
+    } else {
+      badgeEl.innerHTML = '<span class="badge badge-ng">🔴 貸出中</span>';
+      dueEl.textContent = b.currentBorrower.name + ' さんが借用中（返却期限：' + b.currentBorrower.dueDate + '）';
+      zone.innerHTML =
+        '<div class="alert alert-error">この本は現在 ' + esc(b.currentBorrower.name) +
+        ' さんが借りています。<br>返却後にご利用ください。</div>';
+    }
+  } else {
+    badgeEl.innerHTML = '<span class="badge badge-ok">🟢 貸出可</span>';
+    dueEl.textContent = '';
+    zone.innerHTML = '<button class="btn btn-borrow" onclick="doAction(\'borrow\')">📤 この本を借りる</button>';
+  }
+}
+
+function doAction(action) {
+  document.querySelectorAll('.btn-borrow, .btn-return').forEach(function(b) {
+    b.disabled = true; b.textContent = '処理中…';
+  });
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      action: 'recordLoan',
+      data: { employeeName: state.employee.name, employeeEmail: state.employee.email, isbn: state.isbn, action: action }
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.success) {
+      document.getElementById('done-msg').textContent = res.message;
+      goStep(0); show('step-done'); updateDots(3);
+      setTimeout(resetAll, 5000);
+    } else {
+      alert('エラー：' + res.error);
+      document.querySelectorAll('.btn-borrow, .btn-return').forEach(function(b) {
+        b.disabled = false;
+        b.textContent = action === 'borrow' ? '📤 この本を借りる' : '📥 この本を返却する';
+      });
+    }
+  })
+  .catch(function(err) {
+    alert('通信エラー：' + err);
+    document.querySelectorAll('.btn-borrow, .btn-return').forEach(function(b) { b.disabled = false; });
+  });
+}
+
+function resetAll() {
+  stopScanner();
+  state.employee = null; state.isbn = null;
+  document.getElementById('emp-select').value = '';
+  hide('scan-result'); hide('book-detail'); hide('step-done');
+  goStep(1);
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
