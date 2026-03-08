@@ -31,8 +31,6 @@
     .step-line.done { background: var(--success); }
     .card { background: var(--card-bg); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
     .card-title { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    select { width: 100%; padding: 13px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 16px; color: var(--text); background: #fff; outline: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%235f6368' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; margin-bottom: 14px; }
-    select:focus { border-color: var(--primary); }
     .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-bottom: 10px; transition: all 0.15s; }
     .btn:last-child { margin-bottom: 0; }
     .btn:active   { transform: scale(0.98); opacity: 0.85; }
@@ -383,15 +381,16 @@ function doAction(action) {
     document.querySelectorAll('.btn-borrow, .btn-return').forEach(function(b) { b.disabled = false; });
   });
 }
-
 function resetAll() {
   stopScanner();
   state.employee = null; state.isbn = null;
-  document.getElementById('emp-select').value = '';
+  selectedEmployee = null;
+  document.getElementById('emp-search').value = '';
+  document.getElementById('emp-selected').classList.add('hidden');
+  document.getElementById('btn-next1').disabled = true;
   hide('scan-result'); hide('book-detail'); hide('step-done');
   goStep(1);
 }
-
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
