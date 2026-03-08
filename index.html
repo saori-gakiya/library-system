@@ -126,7 +126,12 @@
       社員一覧の読み込みに失敗しました。ページを再読み込みしてください。
     </div>
   </div>
-
+  <!-- マイ本棚 -->
+  <div id="my-books" class="card hidden">
+    <div class="card-title">📚 現在借りている本</div>
+    <div id="my-books-list"></div>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="hide('my-books')">閉じる</button>
+  </div>
   <!-- STEP 2 -->
   <div id="step2" class="card hidden">
     <div class="card-title">📷 STEP 2 ／ 本のバーコードをスキャン</div>
