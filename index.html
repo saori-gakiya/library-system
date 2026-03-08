@@ -330,13 +330,13 @@ function renderBookInfo(res) {
     var isMe = (b.currentBorrower.email === state.employee.email);
     if (isMe) {
       badgeEl.innerHTML = '<span class="badge badge-me">📤 貸出中（あなた）</span>';
-      dueEl.textContent = '返却期限：' + b.currentBorrower.dueDate;
+      dueEl.textContent = '返却期限：' + formatDate(b.currentBorrower.dueDate);
       zone.innerHTML =
         '<div class="alert alert-info">あなたが借りています。返却できます。</div>' +
         '<button class="btn btn-return" onclick="doAction(\'return\')">📥 この本を返却する</button>';
     } else {
       badgeEl.innerHTML = '<span class="badge badge-ng">🔴 貸出中</span>';
-      dueEl.textContent = b.currentBorrower.name + ' さんが借用中（返却期限：' + b.currentBorrower.dueDate + '）';
+      dueEl.textContent = b.currentBorrower.name + ' さんが借用中（返却期限：' + formatDate(b.currentBorrower.dueDate) + '）';
       zone.innerHTML =
         '<div class="alert alert-error">この本は現在 ' + esc(b.currentBorrower.name) +
         ' さんが借りています。<br>返却後にご利用ください。</div>';
@@ -392,6 +392,11 @@ function resetAll() {
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日（' + weekdays[d.getDay()] + '）';
+}
 </script>
 </body>
 </html>
