@@ -218,7 +218,6 @@ function loadEmployees() {
     hide('emp-loading');
     if (!res.success || !res.employees.length) { show('emp-error'); return; }
     allEmployees = res.employees;
-    });
     show('emp-form');
   })
   .catch(function() { hide('emp-loading'); show('emp-error'); });
@@ -230,7 +229,6 @@ function onStep1Next() {
   document.getElementById('scan-user-label').textContent = '👤 ' + state.employee.name + ' さんとして操作します';
   goStep(2);
 }
-
 function goStep(n) {
   stopScanner();
   hide('step1'); hide('step2'); hide('step3'); hide('step-done');
