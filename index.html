@@ -183,12 +183,6 @@
     </div>
   </div>
 </div>
-function goHistory() {
-  if (!selectedEmployee) return;
-  window.location.href = 'history.html?email=' 
-    + encodeURIComponent(selectedEmployee.email)
-    + '&name=' + encodeURIComponent(selectedEmployee.name);
-}
 <script>
 // ★ここを自分のGAS WebApp URLに書き換えてください★
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxmyT8WWCz8v3sa_sZwpkc9SGzNUnh6Au2mi_6fbeMWKxl8lG1s0UqSZhlQBFPGUBtY/exec';
@@ -497,6 +491,12 @@ function selectEmployee(e) {
   selectedEl.classList.remove('hidden');
   document.getElementById('btn-next1').disabled = false;
   loadMyBooks(e);
+}
+function goHistory() {
+  if (!selectedEmployee) return;
+  window.location.href = 'history.html?email='
+    + encodeURIComponent(selectedEmployee.email)
+    + '&name=' + encodeURIComponent(selectedEmployee.name);
 }
 </script>
 </body>
