@@ -225,6 +225,7 @@ function onStep1Next() {
   if (!selectedEmployee) { alert('お名前を選択してください。'); return; }
   state.employee = selectedEmployee;
   document.getElementById('scan-user-label').textContent = '👤 ' + state.employee.name + ' さんとして操作します';
+  hide('my-books');
   goStep(2);
 }
 function goStep(n) {
