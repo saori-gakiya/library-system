@@ -140,18 +140,37 @@
   </button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="hide('my-books')">閉じる</button>
   </div>
-  <!-- STEP 2 -->
-  <div id="step2" class="card hidden">
-    <div class="card-title">📷 STEP 2 ／ 本のバーコードをスキャン</div>
-    <div class="alert alert-info" id="scan-user-label"></div>
-    <div id="scanner-wrap" class="hidden">
-      <video id="scanner-video" playsinline></video>
-      <div class="scan-frame"><span></span><div class="scan-line-anim"></div></div>
-    </div>
-    <div id="scan-result" class="alert alert-success hidden"></div>
-    <button class="btn btn-scan" id="scan-btn" onclick="startScanner()">📷 カメラを起動してスキャン</button>
-    <button class="btn btn-ghost" onclick="goStep(1)">← 戻る</button>
+
+<!-- STEP 2 -->
+<div id="step2" class="card hidden">
+  <div class="card-title">📷 STEP 2 ／ 本のバーコードをスキャン</div>
+  <div class="alert alert-info" id="scan-user-label"></div>
+  <div id="scanner-wrap" class="hidden">
+    <video id="scanner-video" playsinline></video>
+    <div class="scan-frame"><span></span><div class="scan-line-anim"></div></div>
   </div>
+  <div id="scan-result" class="alert alert-success hidden"></div>
+
+  <button class="btn btn-scan" id="scan-btn" onclick="startScanner()">📷 カメラを起動してスキャン</button>
+
+  <div id="manual-isbn-area" style="margin-top:12px;">
+    <button class="btn btn-ghost" style="color:var(--primary);" onclick="toggleManualInput()">
+      🔢 ISBNを手入力
+    </button>
+    <div id="manual-input-box" style="display:none; margin-top:8px;">
+      <input type="number" id="manual-isbn" placeholder="ISBNを13桁で入力"
+        style="width:100%;padding:10px;font-size:16px;border:1px solid #ccc;border-radius:8px;"
+        inputmode="numeric" maxlength="13"
+        onkeydown="if(event.key==='Enter') doManualSearch()">
+      <button class="btn" style="margin-top:8px;width:100%;" onclick="doManualSearch()">
+        🔍 この本を検索
+      </button>
+    </div>
+  </div>
+
+  <button class="btn btn-ghost" style="margin-top:8px;" onclick="goStep(1)">← 戻る</button>
+</div>
+
 
   <!-- STEP 3 -->
   <div id="step3" class="card hidden">
@@ -508,6 +527,22 @@ function goSearch() {
   window.location.href = 'search.html'
     + '?name='  + encodeURIComponent(name)
     + '&email=' + encodeURIComponent(email);
+}
+function toggleManualInput() {
+  var box = document.getElementById('manual-input-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') {
+    document.getElementById('manual-isbn').focus();
+  }
+}
+
+function doManualSearch() {
+  var isbn = document.getElementById('manual-isbn').value.trim();
+  if (isbn.length !== 13 || isNaN(isbn)) {
+    alert('ISBNは13桁の数字で入力してください');
+    return;
+  }
+  onBarcodeDetected(isbn);
 }
 </script>
 </body>
