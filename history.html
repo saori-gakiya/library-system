@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>貸出履歴</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #1a73e8;
+      --success: #2e7d32;
+      --danger:  #c62828;
+      --border:  #e0e0e0;
+      --text:    #1f2937;
+      --text-sub:#6b7280;
+      --bg:      #f0f4f8;
+    }
+    body { font-family: 'Hiragino Sans', sans-serif; background: var(--bg);
+           min-height: 100vh; padding: 16px; }
+    .header { background: var(--primary); color: #fff; padding: 16px 20px;
+              border-radius: 12px; margin-bottom: 16px; display: flex;
+              align-items: center; gap: 12px; }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header p  { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .back-btn  { background: rgba(255,255,255,0.2); border: none; color: #fff;
+                 padding: 8px 14px; border-radius: 8px; cursor: pointer;
+                 font-size: 14px; white-space: nowrap; }
+    .back-btn:hover { background: rgba(255,255,255,0.35); }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .filter-btn { padding: 7px 16px; border-radius: 20px; border: 2px solid var(--border);
+                  background: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+                  color: var(--text-sub); transition: all .2s; }
+    .filter-btn.active { border-color: var(--primary); background: var(--primary);
+                         color: #fff; }
+    .card { background: #fff; border-radius: 12px; padding: 14px 16px;
+            margin-bottom: 10px; border-left: 4px solid var(--border);
+            box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .card.lending  { border-left-color: var(--primary); }
+    .card.returned { border-left-color: var(--success); }
+    .card.overdue  { border-left-color: var(--danger); background: #fff8f8; }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px;
+                  color: var(--text); }
+    .card-meta  { font-size: 12px; color: var(--text-sub); display: flex;
+                  flex-wrap: wrap; gap: 8px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px;
+             font-size: 11px; font-weight: 700; }
+    .badge-lending  { background: #e8f0fe; color: var(--primary); }
+    .badge-returned { background: #e6f4ea; color: var(--success); }
+    .badge-overdue  { background: #fce8e6; color: var(--danger); }
+    .loading { text-align: center; padding: 40px; color: var(--text-sub); }
+    .empty   { text-align: center; padding: 40px; color: var(--text-sub); font-size: 15px; }
+    .count   { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <button class="back-btn" onclick="history.back()">← 戻る</button>
+  <div>
+    <h1>📋 貸出履歴</h1>
+    <p id="header-name">読み込み中...</p>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="setFilter('all',this)">すべて</button>
+  <button class="filter-btn" onclick="setFilter('貸出中',this)">📤 貸出中</button>
+  <button class="filter-btn" onclick="setFilter('返却済',this)">✅ 返却済</button>
+</div>
+
+<div id="count" class="count"></div>
+<div id="list"><div class="loading">📚 読み込み中...</div></div>
+
+<script>
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxmyT8WWCz8v3sa_sZwpkc9SGzNUnh6Au2mi_6fbeMWKxl8lG1s0UqSZhlQBFPGUBtY/exec';
+
+var allRecords = [];
+var currentFilter = 'all';
+
+// URLパラメータ取得
+var params = new URLSearchParams(window.location.search);
+var email = params.get('email') || '';
+var name  = params.get('name')  || '';
+
+document.getElementById('header-name').textContent = name + ' さんの貸出履歴';
+
+// データ取得
+fetch(GAS_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain' },
+  body: JSON.stringify({ action: 'getMyHistory', email: email })
+})
+.then(function(r) { return r.json(); })
+.then(function(res) {
+  if (!res.success) {
+    document.getElementById('list').innerHTML =
+      '<div class="empty">データの取得に失敗しました</div>';
+    return;
+  }
+  allRecords = res.records;
+  renderList();
+})
+.catch(function() {
+  document.getElementById('list').innerHTML =
+    '<div class="empty">通信エラーが発生しました</div>';
+});
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderList();
+}
+
+function formatDate(dateStr) {
+  if (!dateStr || dateStr === 'undefined' || dateStr === '') return '—';
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  var w = ['日','月','火','水','木','金','土'];
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月'
+       + d.getDate() + '日（' + w[d.getDay()] + '）';
+}
+
+function renderList() {
+  var filtered = allRecords.filter(function(r) {
+    if (currentFilter === 'all') return true;
+    if (currentFilter === '貸出中') return r.status === '貸出中';
+    if (currentFilter === '返却済') return r.status === '返却済';
+    return true;
+  });
+
+  document.getElementById('count').textContent =
+    filtered.length + '件表示中（全' + allRecords.length + '件）';
+
+  if (filtered.length === 0) {
+    document.getElementById('list').innerHTML =
+      '<div class="empty">該当する履歴がありません</div>';
+    return;
+  }
+
+  var today = new Date(); today.setHours(0,0,0,0);
+
+  document.getElementById('list').innerHTML = filtered.map(function(r) {
+    var due = new Date(r.dueDate);
+    var isOverdue = r.status === '貸出中' && today > due;
+    var cardClass = isOverdue ? 'overdue' : (r.status === '貸出中' ? 'lending' : 'returned');
+    var badgeClass = isOverdue ? 'badge-overdue' : (r.status === '貸出中' ? 'badge-lending' : 'badge-returned');
+    var badgeText = isOverdue ? '⚠️ 延滞中' : (r.status === '貸出中' ? '📤 貸出中' : '✅ 返却済');
+
+    return '<div class="card ' + cardClass + '">'
+      + '<div class="card-title">' + esc(r.title) + '</div>'
+      + '<div class="card-meta">'
+      + '<span class="badge ' + badgeClass + '">' + badgeText + '</span>'
+      + '<span>📅 貸出：' + formatDate(r.loanDate) + '</span>'
+      + '<span>⏰ 返却期限：' + formatDate(r.dueDate) + '</span>'
+      + (r.returnDate && r.returnDate !== '' && r.returnDate !== 'undefined'
+          ? '<span>✅ 返却日：' + formatDate(r.returnDate) + '</span>' : '')
+      + '</div></div>';
+  }).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
