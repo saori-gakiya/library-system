@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>書籍検索</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:   #1a73e8;
+      --primary-d: #1557b0;
+      --success:   #2e7d32;
+      --danger:    #c62828;
+      --border:    #e0e0e0;
+      --text:      #1f2937;
+      --text-sub:  #6b7280;
+      --bg:        #f0f4f8;
+    }
+    body { font-family: 'Hiragino Sans', sans-serif;
+           background: var(--bg); min-height: 100vh; padding: 16px; }
+    .header { background: var(--primary); color: #fff; padding: 16px 20px;
+              border-radius: 12px; margin-bottom: 16px;
+              display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header p  { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .back-btn  { background: rgba(255,255,255,0.2); border: none; color: #fff;
+                 padding: 8px 14px; border-radius: 8px; cursor: pointer;
+                 font-size: 14px; white-space: nowrap; }
+    .back-btn:hover { background: rgba(255,255,255,0.35); }
+    .search-box { background: #fff; border-radius: 12px; padding: 16px;
+                  margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .search-input { width: 100%; padding: 13px 16px;
+                    border: 2px solid var(--border); border-radius: 10px;
+                    font-size: 16px; outline: none; }
+    .search-input:focus { border-color: var(--primary); }
+    .search-btn { width: 100%; margin-top: 10px; padding: 13px;
+                  background: var(--primary); color: #fff; border: none;
+                  border-radius: 10px; font-size: 16px; font-weight: 700;
+                  cursor: pointer; }
+    .search-btn:hover { background: var(--primary-d); }
+    .count { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; }
+    .card  { background: #fff; border-radius: 12px; padding: 14px 16px;
+             margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+             display: flex; gap: 12px; align-items: flex-start; }
+    .cover { width: 56px; height: 78px; object-fit: cover;
+             border-radius: 6px; background: #f1f3f4; flex-shrink: 0; }
+    .cover-placeholder { width: 56px; height: 78px; border-radius: 6px;
+                         background: #e8f0fe; display: flex; align-items: center;
+                         justify-content: center; font-size: 24px; flex-shrink: 0; }
+    .book-info { flex: 1; }
+    .book-title  { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .book-author { font-size: 12px; color: var(--text-sub); margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px;
+             font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+    .badge-ok  { background: #e6f4ea; color: var(--success); }
+    .badge-ng  { background: #fce8e6; color: var(--danger); }
+    .due-text  { font-size: 11px; color: var(--text-sub); margin-bottom: 8px; }
+    .btn-borrow { width: 100%; padding: 10px; background: var(--primary);
+                  color: #fff; border: none; border-radius: 8px;
+                  font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-borrow:hover   { background: var(--primary-d); }
+    .btn-borrow:disabled { background: #ccc; cursor: not-allowed; }
+    .empty   { text-align: center; padding: 40px; color: var(--text-sub); }
+    .loading { text-align: center; padding: 40px; color: var(--text-sub); }
+    .alert-success { background: #e6f4ea; color: var(--success);
+                     padding: 12px 16px; border-radius: 10px;
+                     margin-bottom: 10px; font-weight: 700; }
+    .alert-error   { background: #fce8e6; color: var(--danger);
+                     padding: 12px 16px; border-radius: 10px;
+                     margin-bottom: 10px; font-weight: 700; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <button class="back-btn" onclick="history.back()">← 戻る</button>
+  <div>
+    <h1>🔍 書籍検索</h1>
+    <p id="header-name">書籍を検索して借りられます</p>
+  </div>
+</div>
+
+<div class="search-box">
+  <input type="text" id="search-input" class="search-input"
+    placeholder="タイトル・著者・ISBNで検索..."
+    onkeydown="if(event.key==='Enter') doSearch()">
+  <button class="search-btn" onclick="doSearch()">🔍 検索する</button>
+</div>
+
+<div id="msg"></div>
+<div id="count" class="count hidden"></div>
+<div id="results"></div>
+
+<script>
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxmyT8WWCz8v3sa_sZwpkc9SGzNUnh6Au2mi_6fbeMWKxl8lG1s0UqSZhlQBFPGUBtY/exec';
+
+var params    = new URLSearchParams(window.location.search);
+var userName  = params.get('name')  || '';
+var userEmail = params.get('email') || '';
+
+if (userName) {
+  document.getElementById('header-name').textContent =
+    '👤 ' + userName + ' さんとして操作中';
+}
+
+function doSearch() {
+  var q = document.getElementById('search-input').value.trim();
+  if (!q) { showMsg('error', '検索キーワードを入力してください'); return; }
+
+  document.getElementById('results').innerHTML =
+    '<div class="loading">🔍 検索中...</div>';
+  document.getElementById('count').classList.add('hidden');
+  document.getElementById('msg').innerHTML = '';
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'searchBooks', query: q })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.success) {
+      document.getElementById('results').innerHTML =
+        '<div class="empty">検索に失敗しました</div>';
+      return;
+    }
+    renderResults(res.results);
+  })
+  .catch(function() {
+    document.getElementById('results').innerHTML =
+      '<div class="empty">通信エラーが発生しました</div>';
+  });
+}
+
+function renderResults(results) {
+  var countEl = document.getElementById('count');
+  if (results.length === 0) {
+    countEl.classList.add('hidden');
+    document.getElementById('results').innerHTML =
+      '<div class="empty">「' + esc(document.getElementById('search-input').value)
+      + '」に一致する書籍は見つかりませんでした</div>';
+    return;
+  }
+
+  countEl.textContent = results.length + '件見つかりました';
+  countEl.classList.remove('hidden');
+
+  document.getElementById('results').innerHTML = results.map(function(b) {
+    var isAvail = b.status === '貸出可';
+    var dueText = '';
+    if (!isAvail && b.loan) {
+      dueText = '<div class="due-text">返却期限：' + formatDate(b.loan.dueDate) + '</div>';
+    }
+    var coverHtml = b.cover
+      ? '<img class="cover" src="' + esc(b.cover) + '" onerror="this.style.display=\'none\'">'
+      : '<div class="cover-placeholder">📗</div>';
+    var btnHtml = isAvail && userName
+      ? '<button class="btn-borrow" onclick="doBorrow(\'' + esc(b.isbn) + '\',this)">📤 借りる</button>'
+      : isAvail && !userName
+      ? '<button class="btn-borrow" disabled>名前を選択してから借りられます</button>'
+      : '<button class="btn-borrow" disabled>🔴 貸出中</button>';
+
+    return '<div class="card" id="card-' + esc(b.isbn) + '">'
+      + coverHtml
+      + '<div class="book-info">'
+      + '<div class="book-title">' + esc(b.title) + '</div>'
+      + '<div class="book-author">' + esc(b.author) + '</div>'
+      + '<span class="badge ' + (isAvail ? 'badge-ok' : 'badge-ng') + '">'
+      + (isAvail ? '✅ 貸出可' : '🔴 貸出中') + '</span>'
+      + dueText
+      + btnHtml
+      + '</div></div>';
+  }).join('');
+}
+
+function doBorrow(isbn, btn) {
+  if (!userName || !userEmail) {
+    showMsg('error', '名前が選択されていません。戻って名前を選択してください。');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '処理中...';
+
+  var today   = new Date();
+  var dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 14);
+
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      action: 'recordLoan',
+      data: {
+        action:        'borrow',
+        isbn:          isbn,
+        employeeName:  userName,
+        employeeEmail: userEmail,
+        loanDate:      formatDateSimple(today),
+        dueDate:       formatDateSimple(dueDate)
+      }
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.success) {
+      var card = document.getElementById('card-' + isbn);
+      card.querySelector('.badge').className    = 'badge badge-ng';
+      card.querySelector('.badge').textContent  = '🔴 貸出中';
+      btn.textContent  = '✅ 借りました！';
+      btn.disabled     = true;
+      showMsg('success', '「' + isbn + '」を借りました！返却期限：'
+        + formatDate(formatDateSimple(dueDate)));
+    } else {
+      btn.disabled    = false;
+      btn.textContent = '📤 借りる';
+      showMsg('error', res.error || '貸出処理に失敗しました');
+    }
+  })
+  .catch(function() {
+    btn.disabled    = false;
+    btn.textContent = '📤 借りる';
+    showMsg('error', '通信エラーが発生しました');
+  });
+}
+
+function showMsg(type, text) {
+  document.getElementById('msg').innerHTML =
+    '<div class="alert-' + type + '">' + esc(text) + '</div>';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr || dateStr === 'undefined' || dateStr === '') return '—';
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  var w = ['日','月','火','水','木','金','土'];
+  return d.getFullYear() + '年' + (d.getMonth()+1) + '月'
+       + d.getDate() + '日（' + w[d.getDay()] + '）';
+}
+
+function formatDateSimple(d) {
+  return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
