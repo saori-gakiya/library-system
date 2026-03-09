@@ -147,7 +147,7 @@ function renderResults(results) {
   countEl.classList.remove('hidden');
 
   document.getElementById('results').innerHTML = results.map(function(b) {
-    var isAvail = b.status === '貸出可';
+    var isAvail = !b.loan;
     var dueText = '';
     if (!isAvail && b.loan) {
       dueText = '<div class="due-text">返却期限：' + formatDate(b.loan.dueDate) + '</div>';
