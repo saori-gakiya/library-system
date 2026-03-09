@@ -130,6 +130,10 @@
   <div id="my-books" class="card hidden">
     <div class="card-title">📚 現在借りている本</div>
     <div id="my-books-list"></div>
+    <button class="btn btn-ghost" style="margin-top:8px;color:var(--primary);" 
+ 　　 id="btn-history" onclick="goHistory()">
+  　　📋 過去の貸出履歴を見る
+　　　　</button>
     <button class="btn btn-ghost" style="margin-top:8px" onclick="hide('my-books')">閉じる</button>
   </div>
   <!-- STEP 2 -->
@@ -179,7 +183,12 @@
     </div>
   </div>
 </div>
-
+function goHistory() {
+  if (!selectedEmployee) return;
+  window.location.href = 'history.html?email=' 
+    + encodeURIComponent(selectedEmployee.email)
+    + '&name=' + encodeURIComponent(selectedEmployee.name);
+}
 <script>
 // ★ここを自分のGAS WebApp URLに書き換えてください★
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxmyT8WWCz8v3sa_sZwpkc9SGzNUnh6Au2mi_6fbeMWKxl8lG1s0UqSZhlQBFPGUBtY/exec';
