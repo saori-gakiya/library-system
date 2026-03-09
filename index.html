@@ -502,6 +502,13 @@ function goHistory() {
     + encodeURIComponent(selectedEmployee.email)
     + '&name=' + encodeURIComponent(selectedEmployee.name);
 }
+function goSearch() {
+  var name  = selectedEmployee ? selectedEmployee.name  : '';
+  var email = selectedEmployee ? selectedEmployee.email : '';
+  window.location.href = 'search.html'
+    + '?name='  + encodeURIComponent(name)
+    + '&email=' + encodeURIComponent(email);
+}
 </script>
 </body>
 </html>
